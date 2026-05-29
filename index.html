@@ -1,167 +1,693 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>連打レース完成版</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<title>Solpon</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#5518d9">
 <style>
-body {
-  margin: 0;
-  overflow: hidden;
-  font-family: sans-serif;
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
 }
 
-/* ゲーム画面 */
-#game {
-  width: 100vw;
-  height: 100vh;
-  position: absolute;
-  background: url("NewNew.png");
-  background-size: cover;
+body{
+    font-family:'Noto Sans JP',sans-serif;
+    overflow-x:hidden;
+    overflow-y:auto;
+    background:black;
 }
 
-/* 車（絵文字） */
-.car {
-  position: absolute;
-  font-size: 150px;
+/* =========================
+   背景
+========================= */
+
+.background{
+    position:fixed;
+    inset:0;
+
+    background:
+    radial-gradient(circle at top,#7d2cff 0%,transparent 40%),
+    radial-gradient(circle at bottom,#009dff 0%,transparent 45%),
+    linear-gradient(180deg,#5518d9,#006eff);
+
+    overflow:hidden;
 }
 
-#player {
-  left: 20%;
-  bottom: 100px;
+/* 発光 */
+
+.glow{
+    position:absolute;
+    width:500px;
+    height:500px;
+    border-radius:50%;
+    filter:blur(120px);
+    opacity:0.4;
+    animation:float 8s ease-in-out infinite;
 }
 
-#enemy {
-  left: 70%;
-  bottom: 100px;
+.glow1{
+    background:#a855ff;
+    top:-200px;
+    left:-200px;
 }
 
-/* UI */
-#ui {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  color: black;
-  font-size: 50px;
+.glow2{
+    background:#00aaff;
+    bottom:-200px;
+    right:-200px;
+    animation-delay:4s;
 }
 
-/* スタート画面 */
-#startScreen, #countdown, #result {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.7);
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 70px;
-  z-index: 10;
+@keyframes float{
+    0%{
+        transform:translateY(0px);
+    }
+    50%{
+        transform:translateY(30px);
+    }
+    100%{
+        transform:translateY(0px);
+    }
 }
+
+/* =========================
+   起動画面
+========================= */
+
+.splash{
+    position:fixed;
+    inset:0;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    z-index:999;
+
+    animation:splashFade 1.2s ease forwards;
+    animation-delay:2.8s;
+}
+
+.logo{
+    color:white;
+    font-size:72px;
+    font-weight:900;
+    letter-spacing:2px;
+
+    opacity:0;
+
+    animation:
+    logoAppear 1.5s ease forwards,
+    logoGlow 3s ease-in-out infinite;
+}
+
+@keyframes logoAppear{
+    0%{
+        opacity:0;
+        transform:scale(0.7);
+        filter:blur(20px);
+    }
+
+    100%{
+        opacity:1;
+        transform:scale(1);
+        filter:blur(0px);
+    }
+}
+
+@keyframes logoGlow{
+    0%{
+        text-shadow:0 0 10px rgba(255,255,255,0.2);
+    }
+
+    50%{
+        text-shadow:
+        0 0 25px rgba(255,255,255,0.9),
+        0 0 60px rgba(170,100,255,0.6);
+    }
+
+    100%{
+        text-shadow:0 0 10px rgba(255,255,255,0.2);
+    }
+}
+
+@keyframes splashFade{
+    to{
+        opacity:0;
+        visibility:hidden;
+    }
+}
+
+/* =========================
+   ホーム
+========================= */
+
+.home{
+    position:relative;
+    z-index:10;
+
+    width:100%;
+    min-height:100vh;
+
+    padding:25px;
+
+    color:white;
+
+    opacity:0;
+
+    animation:homeAppear 1.2s ease forwards;
+    animation-delay:3s;
+}
+    
+/*著作権のマーク*/
+    
+    .footer{
+
+    width:100%;
+
+    text-align:center;
+
+    margin-top:50px;
+    margin-bottom:20px;
+
+    color:rgba(255,255,255,0.35);
+
+    font-size:13px;
+
+    letter-spacing:1px;
+
+    font-weight:600;
+    }
+    
+@keyframes homeAppear{
+    from{
+        opacity:0;
+        transform:translateY(30px);
+    }
+
+    to{
+        opacity:1;
+        transform:translateY(0px);
+    }
+}
+
+/* =========================
+   タイトル
+========================= */
+
+.title{
+    text-align:center;
+    font-size:72px;
+    font-weight:900;
+
+    margin-top:10px;
+
+    text-shadow:
+    0 0 30px rgba(255,255,255,0.25);
+}
+
+/* =========================
+   データパネル
+========================= */
+
+.weeklyPanel{
+
+    margin-top:30px;
+
+    background:rgba(255,255,255,0.14);
+
+    border:
+    1px solid rgba(255,255,255,0.18);
+
+    backdrop-filter:blur(20px);
+
+    border-radius:34px;
+
+    padding:25px;
+
+    box-shadow:
+    0 10px 40px rgba(0,0,0,0.2);
+
+    animation:panelFloat 5s ease-in-out infinite;
+}
+
+@keyframes panelFloat{
+    0%{
+        transform:translateY(0px);
+    }
+
+    50%{
+        transform:translateY(-5px);
+    }
+
+    100%{
+        transform:translateY(0px);
+    }
+}
+
+.weeklyTitle{
+    font-size:38px;
+    font-weight:900;
+
+    margin-bottom:25px;
+}
+
+/* バー */
+
+.bar{
+    margin-bottom:22px;
+}
+
+.barLabel{
+    margin-bottom:10px;
+    font-size:15px;
+    opacity:0.9;
+}
+
+.barTrack{
+    width:100%;
+    height:28px;
+
+    background:rgba(255,255,255,0.12);
+
+    border-radius:999px;
+
+    overflow:hidden;
+}
+
+.barFill{
+    height:100%;
+    border-radius:999px;
+
+    background:
+    linear-gradient(90deg,#ff7b00,#ffb347);
+
+    box-shadow:
+    0 0 20px rgba(255,140,0,0.8);
+
+    animation:growBar 2s ease forwards;
+}
+
+.bar1{
+    width:88%;
+}
+
+.bar2{
+    width:42%;
+}
+
+.bar3{
+    width:73%;
+}
+
+@keyframes growBar{
+    from{
+        width:0;
+    }
+}
+
+/* =========================
+   アプリ
+========================= */
+.appLink{
+
+    text-decoration:none;
+
+    color:inherit;
+}
+
+.appWrap{
+width:100%;
+
+    text-align:center;
+}
+
+.appName{
+
+    margin-top:10px;
+
+    font-size:14px;
+
+    font-weight:700;
+
+    opacity:0.9;
+}
+.appTitle{
+    font-size:58px;
+    font-weight:900;
+
+    margin-top:35px;
+    margin-bottom:30px;
+}
+
+/* グリッド */
+
+.apps{
+    display:grid;
+
+    grid-template-columns:
+    repeat(3,1fr);
+
+    gap:28px;
+}
+
+/* アイコン */
+
+.apps{
+    display:grid;
+
+    grid-template-columns:
+    repeat(3,1fr);
+
+    gap:20px;
+
+    padding-bottom:40px;
+}
+
+.app{
+
+    width:100%;
+    aspect-ratio:1;
+
+    border-radius:50%;
+
+    background:
+    radial-gradient(circle at top left,
+    rgba(255,255,255,0.18),
+    rgba(0,0,0,0.15));
+
+    backdrop-filter:blur(20px);
+
+    border:
+    1px solid rgba(255,255,255,0.1);
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    /* ここ変更 */
+    font-size:38px;
+
+    box-shadow:
+    0 10px 30px rgba(0,0,0,0.35),
+    inset 0 0 30px rgba(255,255,255,0.08);
+
+    transition:0.3s;
+
+    animation:iconAppear 1s ease forwards;
+
+    opacity:0;
+}
+
+.app:nth-child(1){animation-delay:3.2s;}
+.app:nth-child(2){animation-delay:3.35s;}
+.app:nth-child(3){animation-delay:3.5s;}
+.app:nth-child(4){animation-delay:3.65s;}
+.app:nth-child(5){animation-delay:3.8s;}
+.app:nth-child(6){animation-delay:3.95s;}
+
+@keyframes iconAppear{
+    from{
+        opacity:0;
+        transform:translateY(20px) scale(0.7);
+    }
+
+    to{
+        opacity:1;
+        transform:translateY(0px) scale(1);
+    }
+}
+
+.app:hover{
+    transform:
+    translateY(-10px)
+    scale(1.05);
+
+    box-shadow:
+    0 15px 40px rgba(0,0,0,0.45),
+    0 0 40px rgba(255,255,255,0.15);
+}
+
+/* =========================
+   スマホ最適化
+========================= */
+
+@media(max-width:600px){
+
+    .title{
+        font-size:58px;
+    }
+
+    .weeklyTitle{
+        font-size:28px;
+    }
+
+    .appTitle{
+        font-size:40px;
+    }
+
+    .logo{
+        font-size:56px;
+    }
+
+}
+
 </style>
 </head>
+
 <body>
 
-<div id="game">
-  <div id="player" class="car">🏎️</div>
-  <div id="enemy" class="car">🚌</div>
-  <div id="ui"></div>
+<div class="background">
 
-  <div id="startScreen">タップでSTART</div>
-  <div id="countdown" style="display:none;"></div>
-  <div id="result" style="display:none;"></div>
+    <div class="glow glow1"></div>
+    <div class="glow glow2"></div>
+
 </div>
 
+<!-- 起動 -->
+
+<div class="splash">
+
+    <div class="logo">
+        SLP
+    </div>
+
+</div>
+
+<!-- ホーム -->
+
+<div class="home">
+
+    <div class="title">
+        Solpon
+    </div>
+
+    <!-- ウィークリー -->
+
+    <div class="weeklyPanel">
+
+        <div class="weeklyTitle">
+            ウィークリーデータ
+        </div>
+
+        <div class="bar">
+
+            <div class="barLabel">
+                歩数
+            </div>
+
+            <div class="barTrack">
+                <div class="barFill bar1"></div>
+            </div>
+
+        </div>
+
+        <div class="bar">
+
+            <div class="barLabel">
+                睡眠
+            </div>
+
+            <div class="barTrack">
+                <div class="barFill bar2"></div>
+            </div>
+
+        </div>
+
+        <div class="bar">
+
+            <div class="barLabel">
+                心拍
+            </div>
+
+            <div class="barTrack">
+                <div class="barFill bar3"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+    
+    <!-- アプリ -->
+
+<div class="appTitle">
+    アプリケーション
+</div>
+
+<div class="apps">
+
+    <a
+    href="pedometer.html"
+    class="appLink"
+    >
+
+        <div class="appWrap">
+
+            <div class="app">
+                🏃
+            </div>
+
+            <div class="appName">
+                歩数計
+            </div>
+
+        </div>
+
+    </a>
+
+    <div class="appWrap">
+
+        <div class="app">
+            ❤️
+        </div>
+
+        <div class="appName">
+            心拍数
+        </div>
+
+    </div>
+
+    <div class="appWrap">
+
+        <div class="app">
+            🌙
+        </div>
+
+        <div class="appName">
+            睡眠
+        </div>
+
+    </div>
+
+    <div class="appWrap">
+
+        <div class="app">
+            💧
+        </div>
+
+        <div class="appName">
+            水分
+        </div>
+
+    </div>
+
+    <div class="appWrap">
+
+        <div class="app">
+            ⏱️
+        </div>
+
+        <div class="appName">
+            タイマー
+        </div>
+
+    </div>
+
+    <div class="appWrap">
+
+        <div class="app">
+            ⚖️
+        </div>
+
+        <div class="appName">
+            体重
+        </div>
+
+    </div>
+</div>
+<div class="footer">
+    ©2026 Solpon
+</div>
+    
+</div>
 <script>
-const game = document.getElementById("game");
-const player = document.getElementById("player");
-const enemy = document.getElementById("enemy");
-const ui = document.getElementById("ui");
 
-const startScreen = document.getElementById("startScreen");
-const countdownEl = document.getElementById("countdown");
-const resultEl = document.getElementById("result");
+/*
+  一度表示したか
+*/
 
-let playerSpeed = 0;
-let enemySpeed = 5;
+const alreadyVisited =
+sessionStorage.getItem(
+    "solponSplash"
+);
 
-let distancePlayer = 0;
-let distanceEnemy = 0;
+/* 初回じゃない */
 
-let bgOffset = 0;
-let running = false;
+if(alreadyVisited){
 
-// スタート
-startScreen.addEventListener("touchstart", startGame);
+    /*
+      スプラッシュ削除
+    */
 
-function startGame() {
-  startScreen.style.display = "none";
-  countdownEl.style.display = "flex";
+    document
+    .querySelector(".splash")
+    .style.display = "none";
 
-  let count = 3;
-  countdownEl.innerText = count;
+    /*
+      ホーム即表示
+    */
 
-  let timer = setInterval(() => {
-    count--;
-    if (count > 0) {
-      countdownEl.innerText = count;
-    } else if (count === 0) {
-      countdownEl.innerText = "GO!";
-    } else {
-      clearInterval(timer);
-      countdownEl.style.display = "none";
-      running = true;
-      gameLoop();
-    }
-  }, 1000);
+    document
+    .querySelector(".home")
+    .style.opacity = "1";
+
+    document
+    .querySelector(".home")
+    .style.animation = "none";
+
 }
 
-// 連打
-document.addEventListener("touchstart", () => {
-  if (running) playerSpeed += 1.5;
-});
+/* 初回 */
 
-// ループ
-function gameLoop() {
-  if (!running) return;
+else{
 
-  playerSpeed *= 0.98;
-  if (playerSpeed > 15) playerSpeed = 15;
+    sessionStorage.setItem(
+        "solponSplash",
+        "true"
+    );
 
-  enemySpeed = 5 + Math.sin(Date.now()/300)*1.5;
-
-  distancePlayer += playerSpeed;
-  distanceEnemy += enemySpeed;
-
-  // 背景スクロール
-  bgOffset += playerSpeed;
-  game.style.backgroundPositionY = bgOffset + "px";
-
-  // 位置調整
-  let diff = distancePlayer - distanceEnemy;
-  player.style.bottom = (100 + diff * 0.1) + "px";
-  enemy.style.bottom = (100 - diff * 0.1) + "px";
-
-  // UI
-  ui.innerText =
-    "自分: " + Math.floor(distancePlayer) + "m\n" +
-    "敵: " + Math.floor(distanceEnemy) + "m";
-
-  // ゴール
-  if (distancePlayer >= 1000 || distanceEnemy >= 1000) {
-    running = false;
-    resultEl.style.display = "flex";
-
-    if (distancePlayer > distanceEnemy) {
-      resultEl.innerText = "勝ち！🏆";
-    } else {
-      resultEl.innerText = "負け…";
-    }
-    return;
-  }
-
-  requestAnimationFrame(gameLoop);
 }
+
 </script>
+    <script>
 
+if("serviceWorker" in navigator){
+
+    navigator.serviceWorker
+    .register("./sw.js");
+
+}
+
+    </script>
 </body>
 </html>
