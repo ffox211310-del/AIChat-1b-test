@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Local AI Chat</title>
     <style>
-        /* アニメーションとトランジションを強制無効化 */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -15,8 +14,8 @@
         }
 
         body {
-            background-color: #000000; /* 黒 */
-            color: #00BFFF; /* 水色 */
+            background-color: #000000;
+            color: #00BFFF;
             font-family: sans-serif;
             display: flex;
             flex-direction: column;
@@ -25,8 +24,8 @@
         }
 
         header {
-            background-color: #003399; /* 青 */
-            color: #00BFFF; /* 水色 */
+            background-color: #003399;
+            color: #00BFFF;
             padding: 15px;
             text-align: center;
             font-weight: bold;
@@ -57,17 +56,17 @@
         }
 
         .user {
-            background-color: #003399; /* 青 */
-            color: #00BFFF; /* 水色 */
+            background-color: #003399;
+            color: #00BFFF;
             align-self: flex-end;
             border: 1px solid #00BFFF;
         }
 
         .ai {
-            background-color: #000000; /* 黒 */
-            color: #00BFFF; /* 水色 */
+            background-color: #000000;
+            color: #00BFFF;
             align-self: flex-start;
-            border: 1px solid #003399; /* 青 */
+            border: 1px solid #003399;
         }
 
         #input-area {
@@ -84,7 +83,7 @@
             background-color: #000000;
             border: 1px solid #00BFFF;
             color: #00BFFF;
-            font-size: 16px; /* スマホでの自動ズーム防止 */
+            font-size: 16px;
             outline: none;
         }
 
@@ -115,8 +114,7 @@
         <div id="status">システム起動中...</div>
     </header>
 
-    <div id="chat-container">
-        </div>
+    <div id="chat-container"></div>
 
     <div id="input-area">
         <input type="text" id="user-input" placeholder="メッセージを入力..." disabled>
@@ -126,8 +124,11 @@
     <script type="module">
         import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.16.0';
 
-        // ローカルモデルの検索を無効化し、Hugging Faceから直接取得する設定
         env.allowLocalModels = false;
+        
+        /* 【重要】メモリ節約設定 */
+        // スレッド数を1に制限して、並列処理によるメモリ爆発を防ぐ
+        env.backends.onnx.wasm.numThreads = 1;
 
         const statusEl = document.getElementById('status');
         const chatContainer = document.getElementById('chat-container');
@@ -136,15 +137,14 @@
 
         let generator;
 
-        // モデルの初期化とダウンロード
         async function initModel() {
             statusEl.innerText = "モデル読込中(初回は数百MBの通信が発生します)";
             try {
-                // 軽量なテキスト生成モデルを指定
-                generator = await pipeline('text-generation', 'Xenova/TinyLlama-1.1B-Chat-v1.0', {
+                // スマホでも動きやすい超軽量モデル（約350MB）に変更
+                generator = await pipeline('text-generation', 'Xenova/Qwen1.5-0.5B-Chat', {
+                    quantized: true, // 明示的に量子化（圧縮）版を指定
                     progress_callback: (x) => {
                         if (x.status === 'progress') {
-                            // アニメーションバーの代わりにテキストのみで進捗表示
                             statusEl.innerText = `ダウンロード中... ${Math.round(x.progress)}%`;
                         }
                     }
@@ -157,17 +157,14 @@
             }
         }
 
-        // 画面へのメッセージ追加処理
         function appendMessage(text, sender) {
             const div = document.createElement('div');
             div.className = `message ${sender}`;
             div.innerText = text;
             chatContainer.appendChild(div);
-            // 最新のメッセージまでスクロール（アニメーションなしの即時移動）
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        // 送信ボタンのクリックイベント
         sendBtn.addEventListener('click', async () => {
             const text = inputField.value.trim();
             if (!text) return;
@@ -179,22 +176,22 @@
             statusEl.innerText = "AIが思考中...";
 
             try {
-                // TinyLlama用のプロンプトフォーマット
-                const prompt = `<|system|>\nあなたはAIアシスタントです。簡潔に答えてください。</s>\n<|user|>\n${text}</s>\n<|assistant|>\n`;
+                // Qwen用のプロンプトフォーマットに最適化
+                const prompt = `<|im_start|>system\nあなたは優秀なアシスタントです。簡潔に日本語で答えてください。<|im_end|>\n<|im_start|>user\n${text}<|im_end|>\n<|im_start|>assistant\n`;
 
                 const output = await generator(prompt, {
-                    max_new_tokens: 100, // スマホの負荷を考慮し、生成トークン数を制限
+                    max_new_tokens: 60, // スマホの負荷を減らすため、一度に生成する文字数をさらに制限
                     temperature: 0.7,
                     do_sample: true
                 });
 
-                // プロンプト部分を除去してAIの返答のみを抽出
-                let response = output[0].generated_text.replace(prompt, '').trim();
+                // 返答部分だけを綺麗に抽出
+                let response = output[0].generated_text.split('<|im_start|>assistant\n').pop().replace('<|im_end|>', '').trim();
                 appendMessage(response, 'ai');
                 
             } catch (error) {
-    appendMessage("エラー詳細: " + error.message, 'ai');
-}
+                appendMessage("エラー詳細: " + error.message, 'ai');
+            }
 
             statusEl.innerText = "待機中";
             inputField.disabled = false;
@@ -202,14 +199,12 @@
             inputField.focus();
         });
 
-        // エンターキーでの送信対応
         inputField.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !sendBtn.disabled) {
                 sendBtn.click();
             }
         });
 
-        // 起動時にモデルのロードを開始
         initModel();
     </script>
 </body>
