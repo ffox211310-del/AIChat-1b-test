@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat - 1B Model</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a1a;
+            color: #e0e0e0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0a0a2e 0%, #1a1a4e 100%);
+            padding: 15px 20px;
+            border-bottom: 1px solid #1e3a5f;
+            box-shadow: 0 2px 10px rgba(0, 150, 255, 0.1);
+        }
+
+        .header h1 {
+            color: #4db8ff;
+            font-size: 1.3em;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header h1::before {
+            content: "🤖";
+            font-size: 1.4em;
+        }
+
+        .model-info {
+            font-size: 0.75em;
+            color: #7ab8e0;
+            margin-top: 5px;
+            padding-left: 5px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+            background: #ffaa00;
+        }
+
+        .status-indicator.ready {
+            background: #00ff88;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            flex-shrink: 0;
+        }
+
+        .message.assistant .avatar {
+            background: linear-gradient(135deg, #0066cc, #0099ff);
+        }
+
+        .message.user .avatar {
+            background: linear-gradient(135deg, #1a3a5c, #2a5a8c);
+        }
+
+        .message-content {
+            background: #12122a;
+            padding: 12px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+            line-height: 1.5;
+            font-size: 0.95em;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #0066cc, #0088ee);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-content {
+            background: #16163a;
+            border: 1px solid #1e3a5f;
+            border-bottom-left-radius: 4px;
+        }
+
+        .loading .message-content {
+            background: #16163a;
+            border: 1px solid #2a4a7f;
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 5px 0;
+        }
+
+        .typing-indicator span {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #4db8ff;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+            30% { opacity: 1; transform: scale(1.2); }
+        }
+
+        .input-area {
+            background: #0a0a2e;
+            padding: 15px 20px;
+            border-top: 1px solid #1e3a5f;
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        textarea {
+            width: 100%;
+            background: #12122a;
+            border: 1px solid #1e3a5f;
+            border-radius: 20px;
+            padding: 10px 40px 10px 15px;
+            color: #e0e0e0;
+            font-size: 0.95em;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+            line-height: 1.4;
+            max-height: 100px;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            border-color: #4db8ff;
+            box-shadow: 0 0 15px rgba(0, 150, 255, 0.1);
+        }
+
+        textarea::placeholder {
+            color: #4a5a7a;
+        }
+
+        .send-btn {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, #0066cc, #0099ff);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 150, 255, 0.3);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .download-section {
+            background: #0a0a2e;
+            padding: 15px 20px;
+            border-top: 1px solid #1e3a5f;
+            text-align: center;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #003366, #0066cc);
+            color: white;
+            border: 1px solid #1e5a9f;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .download-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #004488, #0077ee);
+            box-shadow: 0 5px 20px rgba(0, 100, 255, 0.3);
+        }
+
+        .download-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #12122a;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0066cc, #00ccff);
+            border-radius: 2px;
+            transition: width 0.3s;
+            width: 0%;
+        }
+
+        .status-text {
+            font-size: 0.8em;
+            color: #7ab8e0;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 12px 15px;
+            }
+            
+            .header h1 {
+                font-size: 1.1em;
+            }
+            
+            .input-area {
+                padding: 10px 15px;
+                gap: 8px;
+            }
+            
+            textarea {
+                font-size: 0.9em;
+                padding: 8px 35px 8px 12px;
+            }
+            
+            .send-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AI Chat Assistant</h1>
+        <div class="model-info">
+            <span class="status-indicator" id="statusDot"></span>
+            <span id="statusText">モデル未ダウンロード</span>
+            <span style="margin-left: 10px;">|</span>
+            <span style="margin-left: 10px;">🧠 1B Model</span>
+        </div>
+    </div>
+
+    <div class="chat-container" id="chatContainer">
+        <div class="message assistant">
+            <div class="avatar">🤖</div>
+            <div class="message-content">
+                こんにちは！AIチャットアシスタントです。<br>
+                まずは下のボタンからAIモデルをダウンロードしてください。<br>
+                <small style="color: #7ab8e0;">※ 初回のみ約500MB〜1GBのダウンロードが必要です</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="download-section" id="downloadSection">
+        <button class="download-btn" id="downloadBtn" onclick="downloadModel()">
+            ⬇️ AIモデルをダウンロード
+        </button>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="status-text" id="downloadStatus"></div>
+    </div>
+
+    <div class="input-area" id="inputArea" style="display: none;">
+        <div class="input-wrapper">
+            <textarea 
+                id="messageInput" 
+                placeholder="メッセージを入力..." 
+                rows="1"
+                onkeydown="handleKeyDown(event)"
+            ></textarea>
+        </div>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+            ➤
+        </button>
+    </div>
+
+    <script type="module">
+        import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2/dist/transformers.min.js';
+
+        let generator = null;
+        let isModelReady = false;
+        let isGenerating = false;
+
+        // グローバル関数を公開
+        window.downloadModel = async function() {
+            const downloadBtn = document.getElementById('downloadBtn');
+            const progressFill = document.getElementById('progressFill');
+            const downloadStatus = document.getElementById('downloadStatus');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            const inputArea = document.getElementById('inputArea');
+            const downloadSection = document.getElementById('downloadSection');
+
+            downloadBtn.disabled = true;
+            downloadStatus.textContent = 'モデルをダウンロード中...';
+            
+            try {
+                generator = await pipeline(
+                    'text-generation',
+                    'onnx-community/Llama-3.2-1B-Instruct',
+                    {
+                        device: 'webgpu',
+                        dtype: 'q4f16',
+                        progress_callback: (progress) => {
+                            if (progress.status === 'progress') {
+                                const percent = Math.round((progress.loaded / progress.total) * 100);
+                                progressFill.style.width = percent + '%';
+                                downloadStatus.textContent = `ダウンロード中... ${percent}%`;
+                                
+                                const sizeMB = (progress.loaded / (1024 * 1024)).toFixed(1);
+                                const totalMB = (progress.total / (1024 * 1024)).toFixed(1);
+                                downloadStatus.textContent = `ダウンロード中... ${percent}% (${sizeMB}MB / ${totalMB}MB)`;
+                            }
+                        }
+                    }
+                );
+
+                isModelReady = true;
+                statusDot.classList.add('ready');
+                statusText.textContent = 'モデル準備完了';
+                downloadStatus.textContent = '✅ ダウンロード完了！チャットを開始できます';
+                
+                // UI切り替え
+                setTimeout(() => {
+                    downloadSection.style.display = 'none';
+                    inputArea.style.display = 'flex';
+                    document.getElementById('sendBtn').disabled = false;
+                    document.getElementById('messageInput').focus();
+                }, 1000);
+
+            } catch (error) {
+                console.error('モデルのダウンロードに失敗:', error);
+                downloadStatus.textContent = '❌ エラー: ' + error.message;
+                downloadBtn.disabled = false;
+                
+                // WebGPUが利用できない場合のフォールバック
+                if (error.message.includes('WebGPU')) {
+                    downloadStatus.textContent = '❌ WebGPUが利用できません。Chrome/Edgeの最新版をお試しください';
+                }
+            }
+        };
+
+        window.sendMessage = async function() {
+            if (!isModelReady || isGenerating) return;
+            
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            isGenerating = true;
+            document.getElementById('sendBtn').disabled = true;
+            input.value = '';
+            input.style.height = 'auto';
+
+            // ユーザーメッセージ追加
+            addMessage(message, 'user');
+            
+            // アシスタントの読み込みメッセージ
+            const loadingMsg = addMessage('', 'assistant', true);
+            
+            try {
+                const result = await generator(message, {
+                    max_new_tokens: 150,
+                    temperature: 0.7,
+                    top_p: 0.9,
+                    do_sample: true,
+                });
+
+                const generatedText = result[0].generated_text;
+                
+                // 読み込みメッセージを削除
+                loadingMsg.remove();
+                
+                // 応答を追加
+                addMessage(generatedText, 'assistant');
+                
+            } catch (error) {
+                console.error('生成エラー:', error);
+                loadingMsg.remove();
+                addMessage('申し訳ありません。エラーが発生しました: ' + error.message, 'assistant');
+            } finally {
+                isGenerating = false;
+                document.getElementById('sendBtn').disabled = false;
+                input.focus();
+            }
+        };
+
+        function addMessage(text, role, isLoading = false) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}${isLoading ? ' loading' : ''}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            avatar.textContent = role === 'user' ? '👤' : '🤖';
+            
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            
+            if (isLoading) {
+                content.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+            } else {
+                content.textContent = text;
+            }
+            
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(content);
+            chatContainer.appendChild(messageDiv);
+            
+            // スクロール
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            return messageDiv;
+        }
+
+        window.handleKeyDown = function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                window.sendMessage();
+            }
+        };
+
+        // テキストエリアの自動リサイズ
+        document.addEventListener('DOMContentLoaded', () => {
+            const textarea = document.getElementById('messageInput');
+            textarea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+            });
+
+            // WebGPUサポートチェック
+            if (!navigator.gpu) {
+                const downloadStatus = document.getElementById('downloadStatus');
+                downloadStatus.textContent = '⚠️ WebGPU未対応。Chrome 113+ または Edge 113+ が必要です';
+                document.getElementById('downloadBtn').disabled = true;
+            }
+        });
+    </script>
+</body>
+</html>
