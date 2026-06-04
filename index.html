@@ -193,8 +193,8 @@
                 appendMessage(response, 'ai');
                 
             } catch (error) {
-                appendMessage("生成中にエラーが発生しました。", 'ai');
-            }
+    appendMessage("エラー詳細: " + error.message, 'ai');
+}
 
             statusEl.innerText = "待機中";
             inputField.disabled = false;
