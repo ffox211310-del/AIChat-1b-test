@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lightweight AI Chat</title>
+    <style>
+        /* アニメーションの完全無効化 */
+        *, *::before, *::after {
+            transition: none !important;
+            animation: none !important;
+            scroll-behavior: auto !important;
+        }
+
+        /* リセットと基本設定 */
+        :root {
+            --color-black: #050505;
+            --color-dark-gray: #111111;
+            --color-blue: #0055FF;
+            --color-light-blue: #00E5FF;
+            --color-text: #E0E0E0;
+            --color-text-dim: #888888;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100dvh; /* モバイルブラウザのアドレスバー対応 */
+            background-color: var(--color-black);
+            color: var(--color-text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 16px; /* iOSでの入力時ズーム防止 */
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ヘッダー */
+        header {
+            background-color: var(--color-dark-gray);
+            border-bottom: 1px solid #222;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        h1 {
+            font-size: 18px;            font-weight: 600;
+            color: var(--color-light-blue);
+            margin: 0;
+        }
+
+        #status {
+            font-size: 12px;
+            color: var(--color-blue);
+            font-weight: 500;
+        }
+
+        /* チャットエリア */
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            -webkit-overflow-scrolling: touch; /* iOSスクロール最適化 */
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 15px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background-color: var(--color-blue);
+            color: #FFFFFF;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.ai {
+            align-self: flex-start;
+            background-color: var(--color-dark-gray);
+            color: var(--color-light-blue);
+            border: 1px solid #1a3a4a;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.system {
+            align-self: center;
+            background-color: transparent;
+            color: var(--color-text-dim);            font-size: 13px;
+            text-align: center;
+            max-width: 100%;
+            padding: 8px;
+        }
+
+        /* 入力エリア */
+        #input-area {
+            background-color: var(--color-dark-gray);
+            border-top: 1px solid #222;
+            padding: 12px 16px;
+            padding-bottom: max(12px, env(safe-area-inset-bottom)); /* iPhone ホームインジケータ対応 */
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        #user-input {
+            flex: 1;
+            background-color: #000000;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            color: var(--color-text);
+            font-size: 16px;
+            outline: none;
+            resize: none;
+            max-height: 120px;
+            font-family: inherit;
+        }
+
+        #user-input:focus {
+            border-color: var(--color-blue);
+        }
+
+        #send-btn {
+            background-color: var(--color-blue);
+            color: #FFFFFF;
+            border: none;
+            border-radius: 8px;
+            padding: 0 20px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation; /* タップ遅延の防止 */
+            min-width: 80px;
+        }
+
+        #send-btn:active {
+            background-color: #0044CC;        }
+
+        #send-btn:disabled {
+            background-color: #333;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        /* プログレスバー (アニメーションなし) */
+        #progress-container {
+            width: 100%;
+            height: 4px;
+            background-color: #222;
+            margin-top: 4px;
+            display: none;
+        }
+
+        #progress-bar {
+            height: 100%;
+            background-color: var(--color-light-blue);
+            width: 0%;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>AI Chat</h1>
+        <div style="text-align: right;">
+            <div id="status">モデル準備中...</div>
+            <div id="progress-container">
+                <div id="progress-bar"></div>
+            </div>
+        </div>
+    </header>
+
+    <div id="chat-container">
+        <div class="message system">
+            軽量AIモデルをダウンロード中です。<br>
+            初回のみ数分かかる場合があります。
+        </div>
+    </div>
+
+    <div id="input-area">
+        <textarea id="user-input" rows="1" placeholder="メッセージを入力..." disabled></textarea>
+        <button id="send-btn" disabled>送信</button>
+    </div>
+
+    <!-- Transformers.js (軽量なブラウザ内AI実行ライブラリ) -->
+    <script type="module">        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+
+        // ローカルモデルの強制無効化（常にHugging Faceから軽量モデルをダウンロード）
+        env.allowLocalModels = false;
+        env.useBrowserCache = true;
+
+        const statusEl = document.getElementById('status');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        let generator = null;
+        let isGenerating = false;
+
+        // メッセージ追加関数
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.textContent = text;
+            chatContainer.appendChild(div);
+            // アニメーションなしで即座にスクロール
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // モデルの初期化とダウンロード
+        async function initModel() {
+            try {
+                statusEl.textContent = 'ダウンロード中...';
+                progressContainer.style.display = 'block';
+
+                // 超軽量チャットモデル (TinyLlama 1.1B Chat) を使用
+                // スマホのメモリ(2GB程度)でも動作するよう量子化されたモデルを指定
+                generator = await pipeline('text-generation', 'Xenova/tinyllama-chat', {
+                    progress_callback: (data) => {
+                        if (data.status === 'progress') {
+                            const pct = Math.round(data.progress || 0);
+                            progressBar.style.width = `${pct}%`;
+                            statusEl.textContent = `ダウンロード中: ${pct}%`;
+                        } else if (data.status === 'done') {
+                            statusEl.textContent = '準備完了';
+                            progressContainer.style.display = 'none';
+                        }
+                    }
+                });
+
+                statusEl.textContent = '利用可能';
+                statusEl.style.color = '#00E5FF'; // 水色に変更
+                                // 入力フォームを有効化
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                userInput.focus();
+                
+                // 初期メッセージを更新
+                const systemMsg = chatContainer.querySelector('.message.system');
+                if (systemMsg) {
+                    systemMsg.textContent = 'モデルの準備が完了しました。チャットを開始できます。';
+                }
+
+            } catch (error) {
+                console.error(error);
+                statusEl.textContent = 'エラー';
+                statusEl.style.color = 'red';
+                addMessage('モデルの読み込みに失敗しました。ページを再読み込みしてください。', 'system');
+            }
+        }
+
+        // 推論実行
+        async function generateResponse(userText) {
+            if (!generator || isGenerating) return;
+            isGenerating = true;
+            sendBtn.disabled = true;
+            sendBtn.textContent = '...';
+
+            // プロンプトフォーマット (TinyLlama用)
+            const prompt = `<|system|>\nYou are a helpful, concise assistant.</s>\n<|user|>\n${userText}</s>\n<|assistant|>\n`;
+
+            try {
+                // 軽量な推論パラメータ (スマホ向けにmax_new_tokensを制限)
+                const output = await generator(prompt, {
+                    max_new_tokens: 150,
+                    temperature: 0.7,
+                    top_p: 0.9,
+                    do_sample: true
+                });
+
+                // 生成されたテキストからプロンプト部分を除去して整形
+                let rawText = output[0].generated_text;
+                let responseText = rawText.split('<|assistant|>\n').pop().trim();
+                
+                // 終了トークンの除去
+                responseText = responseText.replace(/<\/s>$/, '').trim();
+
+                addMessage(responseText, 'ai');
+
+            } catch (error) {
+                console.error(error);
+                addMessage('エラーが発生しました。もう一度お試しください。', 'system');            } finally {
+                isGenerating = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = '送信';
+                userInput.value = '';
+                userInput.style.height = 'auto'; // テキストエリアのリセット
+            }
+        }
+
+        // イベントリスナー
+        sendBtn.addEventListener('click', () => {
+            const text = userInput.value.trim();
+            if (text) {
+                addMessage(text, 'user');
+                generateResponse(text);
+            }
+        });
+
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendBtn.click();
+            }
+        });
+
+        // テキストエリアの自動高さ調整 (アニメーションなし)
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if (this.value === '') {
+                this.style.height = 'auto';
+            }
+        });
+
+        // 初期化開始
+        initModel();
+    </script>
+</body>
+</html>
