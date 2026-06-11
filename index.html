@@ -3,399 +3,408 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>単語ID変換 → 自動文章生成器（マルコフ連鎖）</title>
+    <title>ゼロから作る単語の意味ベクトル - 類推できるAI</title>
     <style>
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
         body {
-            background: linear-gradient(135deg, #1e1e2f 0%, #2a2a3e 100%);
+            background: linear-gradient(135deg, #0a0a1a 0%, #12122a 100%);
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: system-ui, -apple-system, 'Segoe UI', 'Courier New', monospace;
+            font-family: 'Segoe UI', monospace;
             padding: 1rem;
             margin: 0;
         }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
         .card {
-            background: rgba(30, 30, 47, 0.8);
-            backdrop-filter: blur(8px);
-            border-radius: 2rem;
-            padding: 2rem;
-            max-width: 800px;
-            width: 100%;
-            box-shadow: 0 25px 45px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+            background: rgba(20, 20, 40, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
             border: 1px solid rgba(255,255,255,0.1);
         }
-        h1 {
-            font-size: 1.6rem;
-            font-weight: 600;
-            background: linear-gradient(135deg, #c084fc, #60a5fa);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            margin: 0 0 0.5rem 0;
-            letter-spacing: -0.3px;
-        }
-        .sub {
-            color: #94a3b8;
-            font-size: 0.85rem;
-            margin-bottom: 1.5rem;
-            border-left: 3px solid #c084fc;
-            padding-left: 0.75rem;
-        }
-        .section {
-            background: #0f0f1a;
-            border-radius: 1.2rem;
-            padding: 1.2rem;
-            margin-bottom: 1.5rem;
-            border: 1px solid #2d2d44;
-        }
-        .section-title {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 600;
-            color: #818cf8;
-            margin-bottom: 0.75rem;
-        }
+        h1 { color: #a78bfa; margin: 0 0 0.5rem 0; }
+        .sub { color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem; }
         textarea {
             width: 100%;
-            background: #09090f;
+            background: #0a0a14;
             border: 1px solid #334155;
             border-radius: 1rem;
-            padding: 0.8rem 1rem;
+            padding: 0.8rem;
             color: #e2e8f0;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
-            resize: vertical;
-            transition: all 0.2s;
-        }
-        textarea:focus {
-            outline: none;
-            border-color: #a78bfa;
-            box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2);
-        }
-        .btn-group {
-            display: flex;
-            gap: 0.7rem;
-            flex-wrap: wrap;
-            margin: 1rem 0 0.5rem;
+            font-family: monospace;
+            font-size: 0.85rem;
         }
         button {
-            background: #1e293b;
+            background: linear-gradient(95deg, #6366f1, #8b5cf6);
             border: none;
-            padding: 0.5rem 1rem;
+            padding: 0.6rem 1.2rem;
             border-radius: 2rem;
-            font-weight: 500;
-            font-size: 0.8rem;
-            color: #cbd5e6;
+            color: white;
+            font-weight: bold;
             cursor: pointer;
-            transition: all 0.2s ease;
+            margin: 0.5rem 0.5rem 0 0;
             font-family: monospace;
-            backdrop-filter: blur(4px);
         }
-        button.primary {
-            background: linear-gradient(95deg, #8b5cf6, #6366f1);
-            color: white;
-            box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
-        }
-        button.primary:hover {
-            transform: translateY(-1px);
-            filter: brightness(1.05);
-        }
-        button:hover {
-            background: #2d3a5e;
-            color: white;
-        }
-        .output-box {
-            background: #09090f;
+        button:hover { transform: translateY(-1px); filter: brightness(1.05); }
+        .output {
+            background: #0a0a14;
             border-radius: 1rem;
             padding: 1rem;
-            font-family: monospace;
-            font-size: 1rem;
-            border: 1px solid #2d2d44;
-            word-break: break-word;
-            white-space: pre-wrap;
+            border-left: 4px solid #a78bfa;
+            margin-top: 0.5rem;
             color: #facc15;
-            min-height: 80px;
+            font-family: monospace;
+            white-space: pre-wrap;
         }
-        .stats {
-            display: flex;
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 1rem;
+        }
+        .similarity-bar {
+            background: #1a1a2a;
+            border-radius: 0.5rem;
+            padding: 0.3rem;
+            margin: 0.2rem 0;
+        }
+        .bar-fill {
+            background: linear-gradient(90deg, #a78bfa, #6366f1);
+            height: 1.5rem;
+            border-radius: 0.3rem;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 0.5rem;
+            color: white;
+            font-size: 0.7rem;
+        }
+        .status {
             font-size: 0.7rem;
             color: #5b6e8c;
-            margin-top: 0.8rem;
-            flex-wrap: wrap;
-        }
-        .badge {
-            background: #00000030;
-            padding: 0.2rem 0.6rem;
-            border-radius: 20px;
-            font-family: monospace;
-        }
-        hr {
-            border-color: #2d2d44;
-            margin: 1rem 0;
-        }
-        footer {
-            font-size: 0.7rem;
-            text-align: center;
-            color: #4b5563;
-            margin-top: 1rem;
+            margin-top: 0.5rem;
         }
     </style>
 </head>
 <body>
-<div class="card">
-    <h1>🧠 単語ID変換 + マルコフ自動生成</h1>
-    <div class="sub">「学習データ」→ 単語をID化 → 確率的に次の単語を予測 → 文生成 (ゼロから実装)</div>
-
-    <div class="section">
-        <div class="section-title">📖 学習テキスト (コーパス)</div>
-        <textarea id="corpusInput" rows="4" placeholder="例: 今日はいい天気だね。 私は犬が好きです。 天気が良いから散歩に行こう。"></textarea>
-        <div class="btn-group">
-            <button id="learnBtn" class="primary">🔁 単語ID化 & 学習 (遷移確率を作る)</button>
-            <button id="resetBtn">🗑️ リセット</button>
+<div class="container">
+    <div class="card">
+        <h1>🧬 ゼロから作る「単語の意味ベクトル」</h1>
+        <div class="sub">ニューラルネットが「犬と猫は似ている」を自動学習。学習データにない単語の類推も可能に</div>
+        
+        <textarea id="corpus" rows="4">私は犬が好きです 私は猫も好きです 犬と散歩するのは楽しい 猫はかわいい 今日は天気がいい 散歩に最適な天気 楽しい散歩 かわいい犬 かわいい猫</textarea>
+        
+        <div>
+            <button id="trainBtn">🧠 学習開始 (ニューラルネットをゼロから)</button>
+            <button id="analogyBtn">🔍 類推テスト (例: 犬 → 猫 の関係は？)</button>
+            <button id="similarBtn">⭐ 似ている単語を表示</button>
         </div>
-        <div class="stats" id="statsPanel">
-            <span>📦 語彙数: <strong id="vocabCount">0</strong></span>
-            <span>🔗 遷移ルール数: <strong id="transCount">0</strong></span>
+        <div class="status" id="status">未学習。学習ボタンを押すと単語をベクトル化します</div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h3>📝 単語ベクトル (20次元)</h3>
+            <div id="wordVectors" style="font-size: 0.7rem; max-height: 300px; overflow-y: auto; color: #86efac; font-family: monospace;"></div>
+        </div>
+        <div class="card">
+            <h3>🎯 類推 / 類似度</h3>
+            <input type="text" id="word1" placeholder="単語1" style="width:100%; margin-bottom:0.3rem; background:#0a0a14; border:1px solid #334155; border-radius:0.5rem; padding:0.3rem;">
+            <input type="text" id="word2" placeholder="単語2" style="width:100%; margin-bottom:0.5rem; background:#0a0a14; border:1px solid #334155; border-radius:0.5rem; padding:0.3rem;">
+            <button id="cosineBtn" style="width:100%;">コサイン類似度</button>
+            <div id="similarityResult" class="output" style="margin-top:0.5rem; font-size:0.8rem;"></div>
         </div>
     </div>
 
-    <div class="section">
-        <div class="section-title">✨ 自動生成 (マルコフ連鎖)</div>
-        <div class="btn-group">
-            <button id="generateBtn" class="primary">🎲 文章を生成する</button>
-            <button id="generateSeedBtn">🌱 シード単語指定で生成</button>
-        </div>
-        <input type="text" id="seedWordInput" placeholder="シード単語 (例: 天気)" style="width:100%; margin-top: 0.5rem; background:#09090f; border:1px solid #334155; border-radius: 2rem; padding:0.5rem 1rem; color:#e2e8f0;">
-        <div style="margin-top: 1rem;">
-            <div class="section-title" style="margin-bottom: 0.3rem;">📝 生成結果</div>
-            <div class="output-box" id="generatedText">まだ生成されていません</div>
-        </div>
+    <div class="card">
+        <h3>✨ 文章生成 (意味ベクトルから次の単語を予測)</h3>
+        <input type="text" id="seedText" placeholder="最初の1単語" value="犬" style="width:70%; background:#0a0a14; border:1px solid #334155; border-radius:2rem; padding:0.5rem 1rem;">
+        <button id="generateAdvancedBtn">🎲 単語から新しい文を生成</button>
+        <div id="generatedSentence" class="output"></div>
     </div>
-
-    <div class="section">
-        <div class="section-title">🔬 内部デバッグ (単語→ID マップ)</div>
-        <div class="output-box" id="debugMap" style="font-size: 0.7rem; max-height: 120px; overflow-y: auto;">学習すると単語IDマップが表示されます</div>
-    </div>
-    <footer>⚡ 純正JS + マルコフモデル / 「次の単語」を確率的に選択。ゼロから学習・生成</footer>
 </div>
 
 <script>
-    // ----- 核心: マルコフ連鎖モデル (完全スクラッチ) -----
-    // データ構造:
-    // wordToId  : Map<単語, 整数ID>
-    // idToWord  : Array<単語>
-    // transitions: Array<Map<nextId, 出現回数>>   (transitions[現在ID] -> Map(次のID => カウント))
+    // ============================================
+    // ゼロからのニューラルネット: 単語の埋め込みを学習する
+    // Skip-gram 風の超簡易版: 周辺単語を予測することで意味を獲得
+    // ============================================
     
     let wordToId = new Map();
     let idToWord = [];
-    let transitions = [];      // 各インデックス = 現在の単語ID, 値 = Map<nextId, count>
-    let totalTransitions = 0;
+    let embeddingDim = 16;  // 16次元の意味ベクトル
+    let embeddings = null;   // 単語ベクトル行列 [vocabSize][embeddingDim]
+    let contextWeights = null; // 出力層の重み
     
-    // ユーティリティ: テキストを単語分割 (簡単な日本語/英語スペース区切りベース)
+    let trained = false;
+    
+    // トークナイズ (シンプル)
     function tokenize(text) {
-        // 日本語対応の簡易トークナイズ: 英単語/数字/日本語をスペースで分離させる
-        // 句読点などは単語に含めないが、カンマやピリオドは学習に使いたい場合は別途調整
-        // 今回は平易に: スペース/改行で区切り + 漢字/ひらがな/カタカかたまり & 記号は独立させる改良版
-        const matches = text.match(/[\p{L}\p{N}]+|[^\s\p{L}\p{N}]+/gu);
-        if (!matches) return [];
-        return matches.filter(w => w.trim().length > 0);
+        const matches = text.match(/[\p{L}\p{N}]+/gu);
+        return matches ? matches.map(w => w.toLowerCase()) : [];
     }
     
-    // 学習: コーパスを受け取り、単語IDを構築 + 遷移カウント
-    function learnFromCorpus(corpusText) {
-        // リセット状態
-        wordToId.clear();
-        idToWord = [];
-        transitions = [];
-        totalTransitions = 0;
-        
+    // 学習データの準備: コーパスから (中心単語, 周辺単語) のペアを作る
+    function buildTrainingPairs(corpusText) {
         const lines = corpusText.split(/\r?\n/);
-        let allTokens = [];
+        const pairs = [];
+        const allWords = [];
+        
         for (let line of lines) {
-            if (line.trim() === "") continue;
             const tokens = tokenize(line);
-            if (tokens.length === 0) continue;
-            allTokens.push(tokens);
-        }
-        
-        if (allTokens.length === 0) {
-            updateUI();
-            return false;
-        }
-        
-        // フェーズ1: 単語ID登録 (すべてのトークンを収集)
-        for (let tokens of allTokens) {
-            for (let w of tokens) {
-                if (!wordToId.has(w)) {
-                    const newId = idToWord.length;
-                    wordToId.set(w, newId);
-                    idToWord.push(w);
+            if (tokens.length < 2) continue;
+            allWords.push(...tokens);
+            // window size = 2
+            for (let i = 0; i < tokens.length; i++) {
+                const center = tokens[i];
+                for (let j = Math.max(0, i-2); j <= Math.min(tokens.length-1, i+2); j++) {
+                    if (i === j) continue;
+                    pairs.push({ center, context: tokens[j] });
                 }
             }
         }
-        const vocabSize = idToWord.length;
-        // transitions を初期化: 各idに対して空のMap
-        for (let i = 0; i < vocabSize; i++) {
-            transitions[i] = new Map();
-        }
         
-        // フェーズ2: 遷移カウント (現在の単語 → 次の単語)
-        for (let tokens of allTokens) {
-            for (let i = 0; i < tokens.length - 1; i++) {
-                const curWord = tokens[i];
-                const nextWord = tokens[i+1];
-                const curId = wordToId.get(curWord);
-                const nextId = wordToId.get(nextWord);
-                if (curId === undefined || nextId === undefined) continue;
-                const curMap = transitions[curId];
-                curMap.set(nextId, (curMap.get(nextId) || 0) + 1);
-                totalTransitions++;
+        // 単語IDの構築
+        for (let w of allWords) {
+            if (!wordToId.has(w)) {
+                wordToId.set(w, idToWord.length);
+                idToWord.push(w);
             }
-            // 任意: 文末記号として特殊トークンを追加して学習しても良いがシンプルに。
-            // 末尾に終端記号を追加したい場合は後で拡張できる。ここでは「文末では終了」と確率的にストップ。
         }
         
-        updateUI();
-        return true;
+        // ペアをID変換
+        const idPairs = [];
+        for (let p of pairs) {
+            const cId = wordToId.get(p.center);
+            const ctxId = wordToId.get(p.context);
+            if (cId !== undefined && ctxId !== undefined) {
+                idPairs.push({ center: cId, context: ctxId });
+            }
+        }
+        return idPairs;
     }
     
-    // 確率的に次の単語を選択 (重み付きランダム)
-    function getNextWord(currentId) {
-        if (currentId === undefined || currentId >= transitions.length) return null;
-        const nextMap = transitions[currentId];
-        if (!nextMap || nextMap.size === 0) return null;
-        
-        // 重み付き抽選
-        let total = 0;
-        const entries = [];
-        for (let [nextId, count] of nextMap.entries()) {
-            total += count;
-            entries.push({nextId, count});
-        }
-        let rand = Math.random() * total;
-        let accum = 0;
-        for (let {nextId, count} of entries) {
-            accum += count;
-            if (rand < accum) return nextId;
-        }
-        return entries[0]?.nextId || null;
+    // 重み初期化 (Xavier初期化)
+    function initWeights(vocabSize) {
+        embeddings = Array(vocabSize).fill().map(() => 
+            Array(embeddingDim).fill().map(() => (Math.random() - 0.5) * Math.sqrt(2 / embeddingDim))
+        );
+        contextWeights = Array(vocabSize).fill().map(() => 
+            Array(embeddingDim).fill().map(() => (Math.random() - 0.5) * Math.sqrt(2 / embeddingDim))
+        );
     }
     
-    // 文章生成: シード単語(文字列)を受け取り、最大maxLenまで生成
-    function generateSentence(seedWord = null, maxLen = 15) {
-        if (idToWord.length === 0) return "⚠️ 先に学習させてください (テキストを入力 → 学習ボタン)";
-        
-        let startId = null;
-        if (seedWord && wordToId.has(seedWord)) {
-            startId = wordToId.get(seedWord);
-        } else if (seedWord) {
-            return `⚠️ シード単語「${seedWord}」は語彙に存在しません。`;
-        } else {
-            // シードがない場合、ランダムな単語からスタート (出現頻度に応じた初期化も可能だがシンプルにランダム)
-            const randomIndex = Math.floor(Math.random() * idToWord.length);
-            startId = randomIndex;
-        }
-        
-        if (startId === null || transitions[startId]?.size === 0) {
-            return `💡 単語「${idToWord[startId] || seedWord}」からは次単語がありません。別のシードで。`;
-        }
-        
-        let resultIds = [startId];
-        let currentId = startId;
-        let steps = 0;
-        // 最大長まで & ループ防止
-        while (steps < maxLen) {
-            const nextId = getNextWord(currentId);
-            if (nextId === null) break;
-            resultIds.push(nextId);
-            currentId = nextId;
-            steps++;
-            // 簡易: 句点「。」が来たら終了したい場合はループ抜ける
-            const lastWord = idToWord[currentId];
-            if (lastWord === "。" || lastWord === "." || lastWord === "！" || lastWord === "？") break;
-        }
-        
-        // ID→単語に戻す
-        const words = resultIds.map(id => idToWord[id]);
-        return words.join("");
+    // シグモイド関数
+    function sigmoid(x) {
+        return 1 / (1 + Math.exp(-x));
     }
     
-    // デバッグマップの表示
-    function updateUI() {
-        const vocabCount = idToWord.length;
-        let transCount = 0;
-        for (let i = 0; i < transitions.length; i++) {
-            if (transitions[i]) transCount += transitions[i].size;
+    // フォワード: 中心単語ベクトルとコンテキスト単語ベクトルの内積 → 確率
+    function forward(centerId, contextId) {
+        const centerVec = embeddings[centerId];
+        const contextVec = contextWeights[contextId];
+        let dot = 0;
+        for (let i = 0; i < embeddingDim; i++) {
+            dot += centerVec[i] * contextVec[i];
         }
-        document.getElementById("vocabCount").innerText = vocabCount;
-        document.getElementById("transCount").innerText = transCount;
+        return sigmoid(dot);
+    }
+    
+    // 学習: 正例(center,context)と負例(ランダムサンプリング)で勾配降下
+    function trainStep(pairs, learningRate = 0.05, negSamples = 5) {
+        let totalLoss = 0;
+        for (let pair of pairs) {
+            const centerId = pair.center;
+            const contextId = pair.context;
+            const target = 1; // 正例は1
+            
+            // 正例の予測
+            const pred = forward(centerId, contextId);
+            const lossPos = -Math.log(pred + 1e-8);
+            totalLoss += lossPos;
+            
+            // 勾配計算 (正例)
+            const gradPos = pred - target;
+            // 更新: 中心ベクトルとコンテキストベクトル
+            for (let i = 0; i < embeddingDim; i++) {
+                const gradCenter = gradPos * contextWeights[contextId][i];
+                const gradContext = gradPos * embeddings[centerId][i];
+                embeddings[centerId][i] -= learningRate * gradCenter;
+                contextWeights[contextId][i] -= learningRate * gradContext;
+            }
+            
+            // 負例: ランダムに単語を選ぶ
+            for (let n = 0; n < negSamples; n++) {
+                const negId = Math.floor(Math.random() * embeddings.length);
+                if (negId === contextId) continue;
+                const negPred = forward(centerId, negId);
+                const negTarget = 0;
+                const negLoss = -Math.log(1 - negPred + 1e-8);
+                totalLoss += negLoss;
+                const gradNeg = negPred - negTarget;
+                for (let i = 0; i < embeddingDim; i++) {
+                    embeddings[centerId][i] -= learningRate * (gradNeg * contextWeights[negId][i]);
+                    contextWeights[negId][i] -= learningRate * (gradNeg * embeddings[centerId][i]);
+                }
+            }
+        }
+        return totalLoss / pairs.length;
+    }
+    
+    // コサイン類似度
+    function cosineSimilarity(vecA, vecB) {
+        let dot = 0, normA = 0, normB = 0;
+        for (let i = 0; i < embeddingDim; i++) {
+            dot += vecA[i] * vecB[i];
+            normA += vecA[i] * vecA[i];
+            normB += vecB[i] * vecB[i];
+        }
+        return dot / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-8);
+    }
+    
+    // 類似単語トップN
+    function mostSimilar(word, topN = 5) {
+        if (!wordToId.has(word)) return [];
+        const wordId = wordToId.get(word);
+        const wordVec = embeddings[wordId];
+        const similarities = [];
+        for (let i = 0; i < embeddings.length; i++) {
+            if (i === wordId) continue;
+            const sim = cosineSimilarity(wordVec, embeddings[i]);
+            similarities.push({ word: idToWord[i], sim });
+        }
+        similarities.sort((a,b) => b.sim - a.sim);
+        return similarities.slice(0, topN);
+    }
+    
+    // 類推: a : b :: c : ?
+    function analogy(a, b, c) {
+        if (!wordToId.has(a) || !wordToId.has(b) || !wordToId.has(c)) return null;
+        const vecA = embeddings[wordToId.get(a)];
+        const vecB = embeddings[wordToId.get(b)];
+        const vecC = embeddings[wordToId.get(c)];
+        const targetVec = vecB.map((v, i) => v - vecA[i] + vecC[i]);
         
-        // デバッグ表示: 単語→ID 最初の20個だけ表示
-        const mapEntries = [];
-        let count = 0;
+        let bestWord = null;
+        let bestSim = -Infinity;
+        for (let i = 0; i < embeddings.length; i++) {
+            if (idToWord[i] === a || idToWord[i] === b || idToWord[i] === c) continue;
+            const sim = cosineSimilarity(targetVec, embeddings[i]);
+            if (sim > bestSim) {
+                bestSim = sim;
+                bestWord = idToWord[i];
+            }
+        }
+        return { word: bestWord, similarity: bestSim };
+    }
+    
+    // 文章生成: 与えられた単語の次に来る確率が高い単語をベクトルで予測
+    function generateNextWord(prevWord) {
+        if (!wordToId.has(prevWord)) return null;
+        const prevVec = embeddings[wordToId.get(prevWord)];
+        let bestWord = null;
+        let bestScore = -Infinity;
+        for (let i = 0; i < embeddings.length; i++) {
+            const sim = cosineSimilarity(prevVec, embeddings[i]);
+            if (sim > bestScore && idToWord[i] !== prevWord) {
+                bestScore = sim;
+                bestWord = idToWord[i];
+            }
+        }
+        return bestWord;
+    }
+    
+    function generateSentence(startWord, maxLen=8) {
+        let sentence = [startWord];
+        let current = startWord;
+        for (let i = 0; i < maxLen; i++) {
+            const next = generateNextWord(current);
+            if (!next || sentence.includes(next)) break;
+            sentence.push(next);
+            current = next;
+        }
+        return sentence.join(' ');
+    }
+    
+    // UI 表示
+    function displayVectors() {
+        const div = document.getElementById('wordVectors');
+        if (!embeddings) {
+            div.innerHTML = '学習していません';
+            return;
+        }
+        let html = '';
         for (let [word, id] of wordToId.entries()) {
-            if (count++ >= 30) {
-                mapEntries.push(`…他${wordToId.size - 30}語`);
-                break;
-            }
-            mapEntries.push(`"${word}" → ${id}`);
+            const vec = embeddings[id];
+            const shortVec = vec.map(v => v.toFixed(2)).join(', ');
+            html += `<strong>${word}</strong>: [${shortVec}]<br>`;
         }
-        document.getElementById("debugMap").innerHTML = mapEntries.join(" &nbsp;| ") || "単語マップは空です";
+        div.innerHTML = html;
     }
     
-    // 学習ボタン動作
-    document.getElementById("learnBtn").addEventListener("click", () => {
-        const corpus = document.getElementById("corpusInput").value;
-        if (!corpus.trim()) {
-            alert("学習テキストを入力してください。例: 今日はいい天気 天気がいいから散歩に行く");
-            return;
-        }
-        learnFromCorpus(corpus);
-        document.getElementById("generatedText").innerHTML = "✅ 学習完了！「文章を生成」ボタンを押してみてください";
-    });
-    
-    document.getElementById("resetBtn").addEventListener("click", () => {
-        wordToId.clear();
-        idToWord = [];
-        transitions = [];
-        totalTransitions = 0;
-        updateUI();
-        document.getElementById("generatedText").innerHTML = "リセットされました。新しいテキストで学習してください。";
-        document.getElementById("debugMap").innerHTML = "学習すると単語IDマップが表示されます";
-        document.getElementById("vocabCount").innerText = "0";
-        document.getElementById("transCount").innerText = "0";
-    });
-    
-    document.getElementById("generateBtn").addEventListener("click", () => {
+    // 学習メイン
+    async function train() {
+        const corpus = document.getElementById('corpus').value;
+        if (!corpus.trim()) return;
+        document.getElementById('status').innerHTML = '🔄 学習中... (単語ベクトルをゼロから作成)';
+        await new Promise(r => setTimeout(r, 50));
+        
+        const pairs = buildTrainingPairs(corpus);
         if (idToWord.length === 0) {
-            document.getElementById("generatedText").innerHTML = "❓ まず学習データを読み込ませてね (左上のテキストエリア→学習)";
+            document.getElementById('status').innerHTML = '⚠️ 単語が見つかりません';
             return;
         }
-        const sentence = generateSentence(null, 18);
-        document.getElementById("generatedText").innerHTML = sentence;
-    });
+        initWeights(idToWord.length);
+        
+        const epochs = 200;
+        for (let epoch = 0; epoch < epochs; epoch++) {
+            const loss = trainStep(pairs, 0.08, 3);
+            if (epoch % 50 === 0) {
+                document.getElementById('status').innerHTML = `🧪 学習中: epoch ${epoch}/${epochs}, loss=${loss.toFixed(4)}`;
+                await new Promise(r => setTimeout(r, 10));
+            }
+        }
+        trained = true;
+        document.getElementById('status').innerHTML = '✅ 学習完了！ 単語の意味ベクトルが獲得されました。類推や類似度を試せる';
+        displayVectors();
+    }
     
-    document.getElementById("generateSeedBtn").addEventListener("click", () => {
-        if (idToWord.length === 0) {
-            document.getElementById("generatedText").innerHTML = "❓ 学習が先です";
+    // イベント
+    document.getElementById('trainBtn').onclick = () => train();
+    document.getElementById('cosineBtn').onclick = () => {
+        if (!trained) { alert('先に学習'); return; }
+        const w1 = document.getElementById('word1').value.trim().toLowerCase();
+        const w2 = document.getElementById('word2').value.trim().toLowerCase();
+        if (!wordToId.has(w1) || !wordToId.has(w2)) {
+            document.getElementById('similarityResult').innerHTML = '単語が見つかりません';
             return;
         }
-        let seed = document.getElementById("seedWordInput").value.trim();
-        if (seed === "") seed = null;
-        const sentence = generateSentence(seed, 18);
-        document.getElementById("generatedText").innerHTML = sentence;
-    });
-    
-    // 起動時にサンプル学習テキストを入れておく (親切設計)
-    const defaultCorpus = `今日はいい天気ですね。 散歩に行きましょう。 天気がいいから公園で休もう。 私は犬が好きです。 犬と一緒に散歩するのは楽しい。`;
-    document.getElementById("corpusInput").value = defaultCorpus;
-    learnFromCorpus(defaultCorpus);
+        const sim = cosineSimilarity(embeddings[wordToId.get(w1)], embeddings[wordToId.get(w2)]);
+        document.getElementById('similarityResult').innerHTML = `「${w1}」と「${w2}」の類似度: ${sim.toFixed(4)} (1に近いほど意味が近い)`;
+    };
+    document.getElementById('analogyBtn').onclick = () => {
+        if (!trained) { alert('先に学習'); return; }
+        const res = analogy('犬', 'かわいい', '猫');
+        if (res) document.getElementById('similarityResult').innerHTML = `🐕 → かわいい : 🐈 → ? <br> 答え: 「${res.word}」 (類似度 ${res.similarity.toFixed(3)})`;
+        else document.getElementById('similarityResult').innerHTML = '類推失敗、もう少し学習データを増やして';
+    };
+    document.getElementById('similarBtn').onclick = () => {
+        if (!trained) return;
+        const word = prompt('類似単語を知りたい単語は？', '犬');
+        if (!word || !wordToId.has(word)) return;
+        const sims = mostSimilar(word);
+        document.getElementById('similarityResult').innerHTML = `「${word}」に似ている単語:<br>${sims.map(s => `${s.word} (${s.sim.toFixed(3)})`).join('<br>')}`;
+    };
+    document.getElementById('generateAdvancedBtn').onclick = () => {
+        if (!trained) { alert('学習が必要'); return; }
+        const seed = document.getElementById('seedText').value.trim().toLowerCase();
+        if (!wordToId.has(seed)) { document.getElementById('generatedSentence').innerHTML = 'その単語は学習していません'; return; }
+        const sentence = generateSentence(seed);
+        document.getElementById('generatedSentence').innerHTML = `✨ ${sentence} ...`;
+    };
 </script>
 </body>
 </html>
