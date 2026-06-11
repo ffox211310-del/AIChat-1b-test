@@ -1,172 +1,401 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#000000" />
-  <title>Light AI Chat</title>
-  <style>
-    :root{
-      --bg:#000;
-      --panel:#050b14;
-      --panel2:#08101d;
-      --line:#12304a;
-      --text:#e8f6ff;
-      --muted:#8fb8d6;
-      --blue:#1b6cff;
-      --cyan:#26d7ff;
-      --user:#10304f;
-      --bot:#071b2d;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      background:linear-gradient(180deg,#000 0%,#040816 100%);
-      color:var(--text);
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      overflow:hidden;
-    }
-    .app{
-      height:100dvh;
-      display:flex;
-      flex-direction:column;
-      max-width:920px;
-      margin:0 auto;
-      border-left:1px solid var(--line);
-      border-right:1px solid var(--line);
-      background:rgba(0,0,0,.72);
-    }
-    .top{
-      padding:14px 14px 10px;
-      border-bottom:1px solid var(--line);
-      background:rgba(5,11,20,.92);
-    }
-    .title{font-size:18px;font-weight:700;letter-spacing:.02em}
-    .sub{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5}
-    .controls{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
-    select,input,button,textarea{
-      width:100%;
-      border:1px solid var(--line);
-      background:var(--panel2);
-      color:var(--text);
-      border-radius:12px;
-      font-size:15px;
-      outline:none;
-    }
-    select,input,textarea{padding:12px}
-    button{
-      padding:12px 14px;
-      font-weight:700;
-      background:linear-gradient(90deg,var(--blue),var(--cyan));
-      color:#00111d;
-      border:none;
-    }
-    button:disabled,input:disabled,select:disabled{opacity:.55}
-    .status{margin-top:8px;font-size:12px;color:var(--muted);min-height:18px}
-    .chat{flex:1;overflow:auto;padding:14px;scroll-behavior:auto}
-    .msg{max-width:92%;padding:12px 14px;margin:0 0 10px;border:1px solid var(--line);border-radius:16px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
-    .user{margin-left:auto;background:var(--user)}
-    .bot{margin-right:auto;background:var(--bot)}
-    .composer{padding:12px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:rgba(5,11,20,.94)}
-    .row{display:grid;grid-template-columns:1fr auto;gap:8px}
-    textarea{resize:none;min-height:52px;max-height:120px}
-    .hint{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.4}
-    a{color:var(--cyan)}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>単語ID変換 → 自動文章生成器（マルコフ連鎖）</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #1e1e2f 0%, #2a2a3e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: system-ui, -apple-system, 'Segoe UI', 'Courier New', monospace;
+            padding: 1rem;
+            margin: 0;
+        }
+        .card {
+            background: rgba(30, 30, 47, 0.8);
+            backdrop-filter: blur(8px);
+            border-radius: 2rem;
+            padding: 2rem;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 25px 45px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #c084fc, #60a5fa);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin: 0 0 0.5rem 0;
+            letter-spacing: -0.3px;
+        }
+        .sub {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+            border-left: 3px solid #c084fc;
+            padding-left: 0.75rem;
+        }
+        .section {
+            background: #0f0f1a;
+            border-radius: 1.2rem;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #2d2d44;
+        }
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            color: #818cf8;
+            margin-bottom: 0.75rem;
+        }
+        textarea {
+            width: 100%;
+            background: #09090f;
+            border: 1px solid #334155;
+            border-radius: 1rem;
+            padding: 0.8rem 1rem;
+            color: #e2e8f0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            transition: all 0.2s;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #a78bfa;
+            box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2);
+        }
+        .btn-group {
+            display: flex;
+            gap: 0.7rem;
+            flex-wrap: wrap;
+            margin: 1rem 0 0.5rem;
+        }
+        button {
+            background: #1e293b;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-weight: 500;
+            font-size: 0.8rem;
+            color: #cbd5e6;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: monospace;
+            backdrop-filter: blur(4px);
+        }
+        button.primary {
+            background: linear-gradient(95deg, #8b5cf6, #6366f1);
+            color: white;
+            box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+        }
+        button.primary:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.05);
+        }
+        button:hover {
+            background: #2d3a5e;
+            color: white;
+        }
+        .output-box {
+            background: #09090f;
+            border-radius: 1rem;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 1rem;
+            border: 1px solid #2d2d44;
+            word-break: break-word;
+            white-space: pre-wrap;
+            color: #facc15;
+            min-height: 80px;
+        }
+        .stats {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.7rem;
+            color: #5b6e8c;
+            margin-top: 0.8rem;
+            flex-wrap: wrap;
+        }
+        .badge {
+            background: #00000030;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-family: monospace;
+        }
+        hr {
+            border-color: #2d2d44;
+            margin: 1rem 0;
+        }
+        footer {
+            font-size: 0.7rem;
+            text-align: center;
+            color: #4b5563;
+            margin-top: 1rem;
+        }
+    </style>
 </head>
 <body>
-  <div class="app">
-    <div class="top">
-      <div class="title">Light AI Chat</div>
-      <div class="sub">スマホ向け・軽量・アニメーションなし。初回にモデルをダウンロードして端末内にキャッシュします。</div>
-      <div class="controls">
-        <select id="model">
-          <option value="HuggingFaceTB/SmolLM2-135M-Instruct">SmolLM2 135M</option>
-          <option value="HuggingFaceTB/SmolLM2-360M-Instruct" selected>SmolLM2 360M</option>
-          <option value="Qwen/Qwen2.5-0.5B-Instruct">Qwen2.5 0.5B</option>
-        </select>
-        <button id="load">DL</button>
-      </div>
-      <div class="status" id="status">未読み込み</div>
+<div class="card">
+    <h1>🧠 単語ID変換 + マルコフ自動生成</h1>
+    <div class="sub">「学習データ」→ 単語をID化 → 確率的に次の単語を予測 → 文生成 (ゼロから実装)</div>
+
+    <div class="section">
+        <div class="section-title">📖 学習テキスト (コーパス)</div>
+        <textarea id="corpusInput" rows="4" placeholder="例: 今日はいい天気だね。 私は犬が好きです。 天気が良いから散歩に行こう。"></textarea>
+        <div class="btn-group">
+            <button id="learnBtn" class="primary">🔁 単語ID化 & 学習 (遷移確率を作る)</button>
+            <button id="resetBtn">🗑️ リセット</button>
+        </div>
+        <div class="stats" id="statsPanel">
+            <span>📦 語彙数: <strong id="vocabCount">0</strong></span>
+            <span>🔗 遷移ルール数: <strong id="transCount">0</strong></span>
+        </div>
     </div>
-    <div class="chat" id="chat"></div>
-    <div class="composer">
-      <div class="row">
-        <textarea id="input" placeholder="メッセージを入力" disabled></textarea>
-        <button id="send" disabled>送信</button>
-      </div>
-      <div class="hint">推奨: Chrome / Edge の最新モバイル版。端末が重い場合は 135M を使ってください。</div>
+
+    <div class="section">
+        <div class="section-title">✨ 自動生成 (マルコフ連鎖)</div>
+        <div class="btn-group">
+            <button id="generateBtn" class="primary">🎲 文章を生成する</button>
+            <button id="generateSeedBtn">🌱 シード単語指定で生成</button>
+        </div>
+        <input type="text" id="seedWordInput" placeholder="シード単語 (例: 天気)" style="width:100%; margin-top: 0.5rem; background:#09090f; border:1px solid #334155; border-radius: 2rem; padding:0.5rem 1rem; color:#e2e8f0;">
+        <div style="margin-top: 1rem;">
+            <div class="section-title" style="margin-bottom: 0.3rem;">📝 生成結果</div>
+            <div class="output-box" id="generatedText">まだ生成されていません</div>
+        </div>
     </div>
-  </div>
-  <script type="module">
-    import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0";
-    env.allowLocalModels = false;
-    const el = {
-      model: document.getElementById('model'),
-      load: document.getElementById('load'),
-      status: document.getElementById('status'),
-      chat: document.getElementById('chat'),
-      input: document.getElementById('input'),
-      send: document.getElementById('send')
-    };
-    let generator = null;
-    let messages = [{ role: 'system', content: 'You are a concise helpful assistant.' }];
-    function add(role, text){
-      const div = document.createElement('div');
-      div.className = 'msg ' + role;
-      div.textContent = text;
-      el.chat.appendChild(div);
-      el.chat.scrollTop = el.chat.scrollHeight;
-      return div;
+
+    <div class="section">
+        <div class="section-title">🔬 内部デバッグ (単語→ID マップ)</div>
+        <div class="output-box" id="debugMap" style="font-size: 0.7rem; max-height: 120px; overflow-y: auto;">学習すると単語IDマップが表示されます</div>
+    </div>
+    <footer>⚡ 純正JS + マルコフモデル / 「次の単語」を確率的に選択。ゼロから学習・生成</footer>
+</div>
+
+<script>
+    // ----- 核心: マルコフ連鎖モデル (完全スクラッチ) -----
+    // データ構造:
+    // wordToId  : Map<単語, 整数ID>
+    // idToWord  : Array<単語>
+    // transitions: Array<Map<nextId, 出現回数>>   (transitions[現在ID] -> Map(次のID => カウント))
+    
+    let wordToId = new Map();
+    let idToWord = [];
+    let transitions = [];      // 各インデックス = 現在の単語ID, 値 = Map<nextId, count>
+    let totalTransitions = 0;
+    
+    // ユーティリティ: テキストを単語分割 (簡単な日本語/英語スペース区切りベース)
+    function tokenize(text) {
+        // 日本語対応の簡易トークナイズ: 英単語/数字/日本語をスペースで分離させる
+        // 句読点などは単語に含めないが、カンマやピリオドは学習に使いたい場合は別途調整
+        // 今回は平易に: スペース/改行で区切り + 漢字/ひらがな/カタカかたまり & 記号は独立させる改良版
+        const matches = text.match(/[\p{L}\p{N}]+|[^\s\p{L}\p{N}]+/gu);
+        if (!matches) return [];
+        return matches.filter(w => w.trim().length > 0);
     }
-    async function loadModel(){
-      el.load.disabled = true;
-      el.send.disabled = true;
-      el.input.disabled = true;
-      const name = el.model.value;
-      el.status.textContent = '読み込み中: ' + name;
-      generator = await pipeline('text-generation', name, {
-        dtype: 'q8',
-        progress_callback: (p) => {
-          if(p.status === 'progress' && p.loaded && p.total){
-            const mb = Math.round(p.loaded/1024/1024);
-            const total = Math.round(p.total/1024/1024);
-            el.status.textContent = `ダウンロード中: ${mb}MB / ${total}MB`;
-          }
+    
+    // 学習: コーパスを受け取り、単語IDを構築 + 遷移カウント
+    function learnFromCorpus(corpusText) {
+        // リセット状態
+        wordToId.clear();
+        idToWord = [];
+        transitions = [];
+        totalTransitions = 0;
+        
+        const lines = corpusText.split(/\r?\n/);
+        let allTokens = [];
+        for (let line of lines) {
+            if (line.trim() === "") continue;
+            const tokens = tokenize(line);
+            if (tokens.length === 0) continue;
+            allTokens.push(tokens);
         }
-      });
-      el.status.textContent = '準備完了';
-      el.input.disabled = false;
-      el.send.disabled = false;
-      el.input.focus();
+        
+        if (allTokens.length === 0) {
+            updateUI();
+            return false;
+        }
+        
+        // フェーズ1: 単語ID登録 (すべてのトークンを収集)
+        for (let tokens of allTokens) {
+            for (let w of tokens) {
+                if (!wordToId.has(w)) {
+                    const newId = idToWord.length;
+                    wordToId.set(w, newId);
+                    idToWord.push(w);
+                }
+            }
+        }
+        const vocabSize = idToWord.length;
+        // transitions を初期化: 各idに対して空のMap
+        for (let i = 0; i < vocabSize; i++) {
+            transitions[i] = new Map();
+        }
+        
+        // フェーズ2: 遷移カウント (現在の単語 → 次の単語)
+        for (let tokens of allTokens) {
+            for (let i = 0; i < tokens.length - 1; i++) {
+                const curWord = tokens[i];
+                const nextWord = tokens[i+1];
+                const curId = wordToId.get(curWord);
+                const nextId = wordToId.get(nextWord);
+                if (curId === undefined || nextId === undefined) continue;
+                const curMap = transitions[curId];
+                curMap.set(nextId, (curMap.get(nextId) || 0) + 1);
+                totalTransitions++;
+            }
+            // 任意: 文末記号として特殊トークンを追加して学習しても良いがシンプルに。
+            // 末尾に終端記号を追加したい場合は後で拡張できる。ここでは「文末では終了」と確率的にストップ。
+        }
+        
+        updateUI();
+        return true;
     }
-    async function send(){
-      const text = el.input.value.trim();
-      if(!text || !generator) return;
-      el.input.value = '';
-      messages.push({ role: 'user', content: text });
-      add('user', text);
-      el.send.disabled = true;
-      el.input.disabled = true;
-      const typing = add('bot', '...');
-      const prompt = messages.map(m => `<|im_start|>${m.role}
-${m.content}<|im_end|>`).join('
-') + '
-<|im_start|>assistant
-';
-      const out = await generator(prompt, { max_new_tokens: 160, temperature: 0.7, top_p: 0.9, repetition_penalty: 1.08 });
-      const reply = (out?.[0]?.generated_text || '').replace(prompt, '').trim() || '応答を生成できませんでした。';
-      typing.textContent = reply;
-      messages.push({ role: 'assistant', content: reply });
-      el.send.disabled = false;
-      el.input.disabled = false;
-      el.input.focus();
+    
+    // 確率的に次の単語を選択 (重み付きランダム)
+    function getNextWord(currentId) {
+        if (currentId === undefined || currentId >= transitions.length) return null;
+        const nextMap = transitions[currentId];
+        if (!nextMap || nextMap.size === 0) return null;
+        
+        // 重み付き抽選
+        let total = 0;
+        const entries = [];
+        for (let [nextId, count] of nextMap.entries()) {
+            total += count;
+            entries.push({nextId, count});
+        }
+        let rand = Math.random() * total;
+        let accum = 0;
+        for (let {nextId, count} of entries) {
+            accum += count;
+            if (rand < accum) return nextId;
+        }
+        return entries[0]?.nextId || null;
     }
-    el.load.addEventListener('click', loadModel);
-    el.send.addEventListener('click', send);
-    el.input.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
-    add('bot', 'モデルを読み込んで開始してください。');
-  </script>
+    
+    // 文章生成: シード単語(文字列)を受け取り、最大maxLenまで生成
+    function generateSentence(seedWord = null, maxLen = 15) {
+        if (idToWord.length === 0) return "⚠️ 先に学習させてください (テキストを入力 → 学習ボタン)";
+        
+        let startId = null;
+        if (seedWord && wordToId.has(seedWord)) {
+            startId = wordToId.get(seedWord);
+        } else if (seedWord) {
+            return `⚠️ シード単語「${seedWord}」は語彙に存在しません。`;
+        } else {
+            // シードがない場合、ランダムな単語からスタート (出現頻度に応じた初期化も可能だがシンプルにランダム)
+            const randomIndex = Math.floor(Math.random() * idToWord.length);
+            startId = randomIndex;
+        }
+        
+        if (startId === null || transitions[startId]?.size === 0) {
+            return `💡 単語「${idToWord[startId] || seedWord}」からは次単語がありません。別のシードで。`;
+        }
+        
+        let resultIds = [startId];
+        let currentId = startId;
+        let steps = 0;
+        // 最大長まで & ループ防止
+        while (steps < maxLen) {
+            const nextId = getNextWord(currentId);
+            if (nextId === null) break;
+            resultIds.push(nextId);
+            currentId = nextId;
+            steps++;
+            // 簡易: 句点「。」が来たら終了したい場合はループ抜ける
+            const lastWord = idToWord[currentId];
+            if (lastWord === "。" || lastWord === "." || lastWord === "！" || lastWord === "？") break;
+        }
+        
+        // ID→単語に戻す
+        const words = resultIds.map(id => idToWord[id]);
+        return words.join("");
+    }
+    
+    // デバッグマップの表示
+    function updateUI() {
+        const vocabCount = idToWord.length;
+        let transCount = 0;
+        for (let i = 0; i < transitions.length; i++) {
+            if (transitions[i]) transCount += transitions[i].size;
+        }
+        document.getElementById("vocabCount").innerText = vocabCount;
+        document.getElementById("transCount").innerText = transCount;
+        
+        // デバッグ表示: 単語→ID 最初の20個だけ表示
+        const mapEntries = [];
+        let count = 0;
+        for (let [word, id] of wordToId.entries()) {
+            if (count++ >= 30) {
+                mapEntries.push(`…他${wordToId.size - 30}語`);
+                break;
+            }
+            mapEntries.push(`"${word}" → ${id}`);
+        }
+        document.getElementById("debugMap").innerHTML = mapEntries.join(" &nbsp;| ") || "単語マップは空です";
+    }
+    
+    // 学習ボタン動作
+    document.getElementById("learnBtn").addEventListener("click", () => {
+        const corpus = document.getElementById("corpusInput").value;
+        if (!corpus.trim()) {
+            alert("学習テキストを入力してください。例: 今日はいい天気 天気がいいから散歩に行く");
+            return;
+        }
+        learnFromCorpus(corpus);
+        document.getElementById("generatedText").innerHTML = "✅ 学習完了！「文章を生成」ボタンを押してみてください";
+    });
+    
+    document.getElementById("resetBtn").addEventListener("click", () => {
+        wordToId.clear();
+        idToWord = [];
+        transitions = [];
+        totalTransitions = 0;
+        updateUI();
+        document.getElementById("generatedText").innerHTML = "リセットされました。新しいテキストで学習してください。";
+        document.getElementById("debugMap").innerHTML = "学習すると単語IDマップが表示されます";
+        document.getElementById("vocabCount").innerText = "0";
+        document.getElementById("transCount").innerText = "0";
+    });
+    
+    document.getElementById("generateBtn").addEventListener("click", () => {
+        if (idToWord.length === 0) {
+            document.getElementById("generatedText").innerHTML = "❓ まず学習データを読み込ませてね (左上のテキストエリア→学習)";
+            return;
+        }
+        const sentence = generateSentence(null, 18);
+        document.getElementById("generatedText").innerHTML = sentence;
+    });
+    
+    document.getElementById("generateSeedBtn").addEventListener("click", () => {
+        if (idToWord.length === 0) {
+            document.getElementById("generatedText").innerHTML = "❓ 学習が先です";
+            return;
+        }
+        let seed = document.getElementById("seedWordInput").value.trim();
+        if (seed === "") seed = null;
+        const sentence = generateSentence(seed, 18);
+        document.getElementById("generatedText").innerHTML = sentence;
+    });
+    
+    // 起動時にサンプル学習テキストを入れておく (親切設計)
+    const defaultCorpus = `今日はいい天気ですね。 散歩に行きましょう。 天気がいいから公園で休もう。 私は犬が好きです。 犬と一緒に散歩するのは楽しい。`;
+    document.getElementById("corpusInput").value = defaultCorpus;
+    learnFromCorpus(defaultCorpus);
+</script>
 </body>
 </html>
